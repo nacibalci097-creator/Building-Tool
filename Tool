@@ -1,0 +1,268 @@
+local tweenservice = game:GetService("TweenService")
+local userinputservice = game:GetService("UserInputService")
+
+local positionblock_module = require(game.ReplicatedStorage.Modules.PositionBlock)
+local Blocks_module = require(game.ReplicatedStorage.Modules.Blocks)
+
+local events = game.ReplicatedStorage.Events
+
+local tool = script.Parent
+local player = game.Players.LocalPlayer
+local gui = player.PlayerGui:WaitForChild("ScreenGui")
+local modebutton = gui:WaitForChild("BuildFrame"):WaitForChild("ButtonsList"):WaitForChild("Mode")
+
+local mouse = player:GetMouse()
+
+local indicator = game.ReplicatedStorage.Indicator
+local currentpart : Part
+local tween : Tween
+local thread : thread
+local track : AnimationTrack
+
+local mode = "Build"
+local rotation = 0
+
+userinputservice.InputBegan:Connect(function(input, proccess)
+	if proccess then return end
+	
+	if input.KeyCode == Enum.KeyCode.R then
+		rotation = rotation >= 3 and 0 or rotation + 1
+
+		if currentpart then
+			tweenservice:Create(currentpart, TweenInfo.new(0.2), {Orientation = Vector3.new(0, rotation * 90, 0)}):Play()
+		end
+	end
+end)
+
+for name, info in Blocks_module do
+	local template = gui.BuildFrame.BlocksList.Template:Clone()
+	template.LayoutOrder = info.Id
+	template.Name = name
+	
+	local block : Part = game.ReplicatedStorage.Blocks[name]:Clone()
+	
+	block.Position = Vector3.new(0,0,-6)
+	block.Parent = template.WorldModel
+	
+	template.MouseEnter:Connect(function()
+		game.ReplicatedStorage.Sounds.ButtonHover:Play()
+		if currentpart and currentpart.Name == template.Name then return end
+		tweenservice:Create(template, TweenInfo.new(0.25), {BackgroundColor3 = Color3.fromRGB(88, 133, 255)}):Play()
+	end)
+	
+	template.MouseLeave:Connect(function()
+		if currentpart and currentpart.Name == template.Name then return end
+		tweenservice:Create(template, TweenInfo.new(0.25), {BackgroundColor3 = Color3.fromRGB(90, 127, 127)}):Play()
+	end)
+	
+	template.Button.MouseButton1Click:Connect(function()
+		game.ReplicatedStorage.Sounds.ButtonClick:Play()
+
+		if mode == "Destroy" then return end
+		
+		for i, v in gui.BuildFrame.BlocksList:GetChildren() do
+			if v:IsA("ViewportFrame") then
+				v.BackgroundColor3 = Color3.fromRGB(90, 127, 127)
+			end
+		end
+		
+		template.BackgroundColor3 = Color3.fromRGB(0, 242, 255)
+		
+		if currentpart then
+			currentpart:Destroy()
+		end
+		
+		currentpart = block:Clone()
+		
+		currentpart.Transparency = 1
+		currentpart.Orientation = Vector3.new(0, rotation * 90, 0)
+		currentpart.Position = positionblock_module(currentpart, mouse.Hit.Position)
+		
+		for i, v in currentpart:GetChildren() do
+			if v:IsA("Decal") then
+				v.Transparency = 0.5
+			end
+		end
+		
+		currentpart.Parent = workspace
+	end)
+	
+	template.Visible = true
+	template.Parent = gui.BuildFrame.BlocksList
+	
+	task.defer(function()
+		while task.wait() do
+			if player.Backpack:FindFirstChild("Build") then continue end
+			block.Orientation += Vector3.new(0, 0.125, 0)
+		end
+	end)
+end
+
+modebutton.MouseButton1Click:Connect(function()
+	local info = TweenInfo.new(0.25, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut)
+	game.ReplicatedStorage.Sounds.ButtonClick:Play()
+	
+	if mode == "Build" then
+		mode = "Destroy"
+		gui.BuildFrame.Mode.Text = "Destroy"
+		modebutton.Text = "Destroy"
+
+		if currentpart then
+			currentpart:Destroy()
+			currentpart = nil
+		end
+		
+		for i, v in gui.BuildFrame.BlocksList:GetChildren() do
+			if v:IsA("ViewportFrame") then
+				v.BackgroundColor3 = Color3.fromRGB(90, 127, 127)
+			end
+		end
+		
+		gui.BuildFrame.BlocksList.Visible = false
+		
+		tweenservice:Create(gui.BuildFrame.ButtonsList, info, {Size = UDim2.fromScale(0.827, 0.345), Position = UDim2.fromScale(0.071, 0.4)}):Play()
+		tweenservice:Create(gui.BuildFrame.Mode, info, {Size = UDim2.fromScale(0.912, 0.322), BackgroundColor3 = Color3.fromRGB(91, 1, 2), TextColor3 = Color3.fromRGB(255, 0, 242)}):Play()			
+		tweenservice:Create(modebutton, info, {Position = UDim2.fromScale(0.529, 0.114), TextColor3 = Color3.fromRGB(255, 0, 242), BackgroundColor3 = Color3.fromRGB(91, 1, 2)}):Play()		
+		local infotween = tweenservice:Create(gui.BuildFrame, info, {BackgroundColor3 = Color3.fromRGB(127, 23, 27), Size = UDim2.fromScale(0.212, 0.163), Position = UDim2.fromScale(0.778, 0.418)})
+		infotween:Play()
+		infotween.Completed:Wait()
+		gui.BuildFrame.Rotating.Visible = false
+		
+	elseif mode == "Destroy" then
+		mode = "Build"
+		gui.BuildFrame.Mode.Text = "Build"
+		modebutton.Text = "Build"
+		
+		indicator.Parent = nil
+		
+		gui.BuildFrame.BlocksList.Visible = true
+		gui.BuildFrame.Rotating.Visible = true
+
+		tweenservice:Create(gui.BuildFrame.ButtonsList, info, {Size = UDim2.fromScale(0.827, 0.132), Position = UDim2.fromScale(0.071, 0.153)}):Play()
+		tweenservice:Create(gui.BuildFrame.Mode, info, {Size = UDim2.fromScale(0.912, 0.124), BackgroundColor3 = Color3.fromRGB(91, 91, 91), TextColor3 = Color3.fromRGB(255, 255, 255)}):Play()		
+		tweenservice:Create(modebutton, info, {Position = UDim2.fromScale(0, 0.114), BackgroundColor3 = Color3.fromRGB(91, 91, 91), TextColor3 = Color3.fromRGB(255, 255, 255)}):Play()
+		tweenservice:Create(gui.BuildFrame, info, {BackgroundColor3 = Color3.fromRGB(71, 71, 71), Size = UDim2.fromScale(0.212, 0.426), Position = UDim2.fromScale(0.778, 0.299)}):Play()
+	end
+end)
+
+tool.Activated:Connect(function()
+	local char = player.Character or player.CharacterAdded:Wait()
+
+	if track then track:Stop() end
+
+	track = char.Humanoid.Animator:LoadAnimation(game.ReplicatedStorage.Animations.BlockPlace)
+	track:Play()
+	track:AdjustSpeed(1.5)
+	
+	if mode == "Build" then
+		if not currentpart then return end
+		
+		if tween then
+			tween.Completed:Wait()
+		end
+
+		local buff = buffer.create(14)
+		local blockid = Blocks_module[currentpart.Name].Id
+
+		buffer.writeu8(buff, 0, blockid)
+		buffer.writef32(buff, 1, currentpart.Position.X)
+		buffer.writef32(buff, 5, currentpart.Position.Y)
+		buffer.writef32(buff, 9, currentpart.Position.Z)
+		buffer.writeu8(buff, 13, rotation)
+
+		events.PlaceBlock:FireServer(buff)
+		
+		local sound : Sound = game.ReplicatedStorage.PlaceSounds:FindFirstChild(currentpart.Name)
+		
+		local particle = game.ReplicatedStorage.Effects.BlockPlace:Clone()
+		particle.Position = currentpart.Position
+		particle.Parent = workspace.Effects
+		
+		particle.Particle.Color = ColorSequence.new({
+			ColorSequenceKeypoint.new(0, Blocks_module[currentpart.Name].PlaceColor),
+			ColorSequenceKeypoint.new(1, Blocks_module[currentpart.Name].PlaceColor),
+		})
+		
+		particle.Particle:Emit(20)
+		
+		task.delay(0.2, function()
+			particle:Destroy()
+		end)
+		
+		if sound then
+			sound:Play()
+		end
+	elseif mode == "Destroy" then
+		local block = mouse.Target
+		
+		if not block then return end
+		if block.Parent ~= workspace.PlacedBlocks then return end
+		
+		local id : number = block.Id.Value
+		
+		local buff = buffer.create(2)
+		buffer.writeu16(buff, 0, id)
+		
+		local result = events.DeleteBlock:InvokeServer(buff)
+		
+		if result then
+			local sound : Sound = game.ReplicatedStorage.BreakSounds[block.Name]
+			sound:Play()
+			
+			local particle = game.ReplicatedStorage.Effects.BlockPlace:Clone()
+			particle.Position = block.Position
+			particle.Parent = workspace.Effects
+
+			particle.Particle.Color = ColorSequence.new({
+				ColorSequenceKeypoint.new(0, Blocks_module[block.Name].PlaceColor),
+				ColorSequenceKeypoint.new(1, Blocks_module[block.Name].PlaceColor),
+			})
+
+			particle.Particle:Emit(20)
+			
+			task.delay(0.2, function()
+				particle:Destroy()
+			end)
+		end
+	end
+end)
+
+tool.Unequipped:Connect(function()
+	task.cancel(thread)
+	
+	if currentpart then
+		currentpart:Destroy()
+		currentpart = nil
+	end
+
+	tweenservice:Create(gui.BuildFrame, TweenInfo.new(0.25), {Position = UDim2.fromScale(1.01, gui.BuildFrame.Position.Y.Scale)}):Play()
+end)
+
+tool.Equipped:Connect(function()
+	thread = task.defer(function()
+		tweenservice:Create(gui.BuildFrame, TweenInfo.new(0.25), {Position = UDim2.fromScale(0.778, gui.BuildFrame.Position.Y.Scale)}):Play()
+		
+		repeat task.wait() until currentpart
+		
+		while task.wait() do
+			if mode == "Build" then
+				if not currentpart then continue end
+				
+				local pos = positionblock_module(currentpart, mouse.Hit.Position)
+				if pos == currentpart.Position then continue end
+
+				tween = tweenservice:Create(currentpart, TweenInfo.new(0.1), {Position = pos})
+				tween:Play()
+				tween.Completed:Wait()
+				tween = nil
+			elseif mode == "Destroy" then
+				local target = mouse.Target
+				
+				if not target then indicator.Parent = nil continue end
+				if target.Parent ~= workspace.PlacedBlocks then indicator.Parent = nil continue end
+				indicator.Position = target.Position
+				indicator.Parent = workspace
+			end
+		end
+	end)
+end)
