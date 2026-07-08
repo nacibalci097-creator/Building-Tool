@@ -1,0 +1,72 @@
+local Blocks_module = require(game.ReplicatedStorage.Modules.Blocks)
+local events = game.ReplicatedStorage.Events
+
+local blockids = {}
+local placedblocks = {}
+
+local totalids = 0
+
+local function getblockfromid(id : number)
+	if blockids[id] then return blockids[id] end
+	
+	for name, info in Blocks_module do
+		if info.Id == id then
+			blockids[info.Id] = name
+			return name
+		end
+	end
+end
+
+events.PlaceBlock.OnServerEvent:Connect(function(plr, buff : buffer)
+	local id : number = buffer.readu8(buff, 0)
+	
+	local posx = buffer.readf32(buff, 1)
+	local posy = buffer.readf32(buff, 5)
+	local posz = buffer.readf32(buff, 9)
+	local rotation = buffer.readu8(buff, 13)
+	
+	local blockpos = Vector3.new(posx, posy, posz)
+	
+	local char = plr.Character or plr.CharacterAdded:Wait()
+	
+	if (char:GetPivot().Position - blockpos).Magnitude > 50 then return end
+	local block : Part = game.ReplicatedStorage.Blocks[getblockfromid(id)]:Clone()
+	
+	block.Position = blockpos
+	block.Orientation = Vector3.new(0, rotation * 90, 0)
+	block.CanQuery = true
+	block.CanCollide = true
+	
+	local blockid = Instance.new("IntValue")
+	
+	blockid.Name = "Id"
+	blockid.Value = totalids
+	blockid.Parent = block
+	
+	placedblocks[totalids] = {
+		Owner = plr.Name,
+		Block = block,
+	}
+	
+	totalids += 1
+	
+	if Blocks_module[block.Name].OnSpawn then
+		Blocks_module[block.Name].OnSpawn(block)
+	end
+	
+
+	block.Parent = workspace.PlacedBlocks
+end)
+
+events.DeleteBlock.OnServerInvoke = function(player, buff)
+	local id : number = buffer.readi16(buff, 0)
+	
+	local blockinfo = placedblocks[id]
+	
+	if blockinfo.Owner ~= player.Name then return false end
+	
+	blockinfo.Block:Destroy()
+	placedblocks[id] = nil
+	
+	return true
+end
