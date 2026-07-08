@@ -1,0 +1,70 @@
+return {
+	["Plank"] = {
+		Id = 1,
+		PlaceColor = Color3.fromRGB(202, 152, 0),
+	},
+	
+	["Stone"] = {
+		Id = 2,	
+		PlaceColor = Color3.fromRGB(143, 143, 143),
+	},
+	
+	["Wood"] = {
+		Id = 3,	
+		PlaceColor = Color3.fromRGB(95, 55, 15),
+	},
+	
+	["Glass"] = {
+		Id = 4,
+		PlaceColor = Color3.fromRGB(197, 197, 197),
+	},
+	
+	["Grass"] = {
+		Id = 5,	
+		PlaceColor = Color3.fromRGB(32, 217, 48),
+	},
+	
+	["Wool"] = {
+		Id = 6,	
+		PlaceColor = Color3.fromRGB(255, 43, 82),
+	},
+	
+	["Door"] = {
+		Id = 7,
+		Offset = Vector3.new(-1.75,0,0),
+		PlaceColor = Color3.fromRGB(202, 152, 0),
+		
+		OnSpawn = function(part : Part)
+			local prompt = Instance.new("ProximityPrompt")
+			prompt.MaxActivationDistance = 4.5
+			
+			local rotation = part.Rotation
+			local position = part.Position
+			
+			local closesound = game.ReplicatedStorage.Sounds.DoorClose
+			local opensound = game.ReplicatedStorage.Sounds.DoorOpen
+			
+			prompt.Triggered:Connect(function()
+				part.Orientation = part.Orientation == rotation and rotation + Vector3.new(0, 90, 0) or rotation
+				part.Position = part.Position == position and part.Position - Vector3.new(-1.75, 0,-1.75) or position
+				
+				if part.Position == position then
+					closesound:Play()
+				else
+					opensound:Play()
+				end
+			end)
+			prompt.Parent = part
+		end,
+	},
+	
+	["GlowStone"] = {
+		Id = 8,	
+		PlaceColor = Color3.fromRGB(255, 246, 143),
+	},
+	
+	["Leaf"] = {
+		Id = 9,	
+		PlaceColor = Color3.fromRGB(0, 161, 13),
+	},
+}
