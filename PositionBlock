@@ -1,0 +1,30 @@
+local blocks_module = require(game.ReplicatedStorage.Modules.Blocks)
+local mouse = game.Players.LocalPlayer:GetMouse()
+
+local surfacetypes = {
+	[Enum.NormalId.Top] = Vector3.new(0, 1, 0),
+	[Enum.NormalId.Bottom] = Vector3.new(0, -1, 0),
+	[Enum.NormalId.Front] = Vector3.new(0, 0, -1),
+	[Enum.NormalId.Back] = Vector3.new(0, 0, 1),
+	[Enum.NormalId.Left] = Vector3.new(-1, 0, 0),
+	[Enum.NormalId.Right] = Vector3.new(1, 0, 0),
+}
+
+return function (part : Part, mousepos : Vector3)
+	local target = mouse.Target
+
+	if not target then
+		return part.Position
+	end
+	
+	if target.Parent ~= workspace.PlacedBlocks then
+		return Vector3.new(math.round(mousepos.X / 4) * 4,
+			math.round(mousepos.Y / 4) * 4 + part.Size.Y / 2,
+			math.round(mousepos.Z / 4) * 4) + (blocks_module[part.Name].Offset or Vector3.new())
+	end
+
+	local surface = mouse.TargetSurface
+	local offset = surfacetypes[surface] * ((target.Size + part.Size) / 2)
+
+	return target.Position + offset + (blocks_module[part.Name].Offset or Vector3.new())
+end
